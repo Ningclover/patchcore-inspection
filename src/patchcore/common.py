@@ -12,15 +12,17 @@ import torch.nn.functional as F
 
 
 class FaissNN(object):
-    def __init__(self, on_gpu: bool = False, num_workers: int = 4) -> None:
+    def __init__(self, on_gpu: bool = False, num_workers: int = 4, gpu_id: int = 0) -> None:
         """FAISS Nearest neighbourhood search.
 
         Args:
             on_gpu: If set true, nearest neighbour searches are done on GPU.
             num_workers: Number of workers to use with FAISS for similarity search.
+            gpu_id: GPU index to use when on_gpu is True.
         """
         faiss.omp_set_num_threads(num_workers)
         self.on_gpu = on_gpu
+        self.gpu_id = gpu_id
         self.search_index = None
 
     def _gpu_cloner_options(self):
@@ -31,7 +33,7 @@ class FaissNN(object):
             # For the non-gpu faiss python package, there is no GpuClonerOptions
             # so we can not make a default in the function header.
             return faiss.index_cpu_to_gpu(
-                faiss.StandardGpuResources(), 0, index, self._gpu_cloner_options()
+                faiss.StandardGpuResources(), self.gpu_id, index, self._gpu_cloner_options()
             )
         return index
 
@@ -42,8 +44,10 @@ class FaissNN(object):
 
     def _create_index(self, dimension):
         if self.on_gpu:
+            cfg = faiss.GpuIndexFlatConfig()
+            cfg.device = self.gpu_id
             return faiss.GpuIndexFlatL2(
-                faiss.StandardGpuResources(), dimension, faiss.GpuIndexFlatConfig()
+                faiss.StandardGpuResources(), dimension, cfg
             )
         return faiss.IndexFlatL2(dimension)
 

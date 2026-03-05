@@ -110,6 +110,17 @@ def run(methods, results_path, gpu, seed, save_segmentation_images):
                 x[1] != "good" for x in dataloaders["testing"].dataset.data_to_iterate
             ]
 
+            # Save per-image scores to CSV.
+            image_paths_all = [
+                x[2] for x in dataloaders["testing"].dataset.data_to_iterate
+            ]
+            per_image_csv = os.path.join(results_path, dataset_name + "_per_image_scores.csv")
+            with open(per_image_csv, "w") as f:
+                f.write("image_path,anomaly_score,is_defect\n")
+                for img_path, score, label in zip(image_paths_all, scores, anomaly_labels):
+                    f.write("{},{:.6f},{}\n".format(img_path, score, int(label)))
+            LOGGER.info("Per-image scores saved to {}".format(per_image_csv))
+
             # Plot Example Images.
             if save_segmentation_images:
                 image_paths = [
@@ -144,55 +155,57 @@ def run(methods, results_path, gpu, seed, save_segmentation_images):
                     mask_transform=mask_transform,
                 )
 
-            LOGGER.info("Computing evaluation metrics.")
-            # Compute Image-level AUROC scores for all images.
-            auroc = patchcore.metrics.compute_imagewise_retrieval_metrics(
-                scores, anomaly_labels
-            )["auroc"]
-
-            # Compute PRO score & PW Auroc for all images
-            pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
-                segmentations, masks_gt
-            )
-            full_pixel_auroc = pixel_scores["auroc"]
-
-            # Compute PRO score & PW Auroc only for images with anomalies
-            sel_idxs = []
-            for i in range(len(masks_gt)):
-                if np.sum(masks_gt[i]) > 0:
-                    sel_idxs.append(i)
-            pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
-                [segmentations[i] for i in sel_idxs], [masks_gt[i] for i in sel_idxs]
-            )
-            anomaly_pixel_auroc = pixel_scores["auroc"]
-
-            result_collect.append(
-                {
-                    "dataset_name": dataset_name,
-                    "instance_auroc": auroc,
-                    "full_pixel_auroc": full_pixel_auroc,
-                    "anomaly_pixel_auroc": anomaly_pixel_auroc,
-                }
-            )
-
-            for key, item in result_collect[-1].items():
-                if key != "dataset_name":
-                    LOGGER.info("{0}: {1:3.3f}".format(key, item))
+            # TODO: restore evaluation metrics when defect test images are available
+            # LOGGER.info("Computing evaluation metrics.")
+            # # Compute Image-level AUROC scores for all images.
+            # auroc = patchcore.metrics.compute_imagewise_retrieval_metrics(
+            #     scores, anomaly_labels
+            # )["auroc"]
+            #
+            # # Compute PRO score & PW Auroc for all images
+            # pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
+            #     segmentations, masks_gt
+            # )
+            # full_pixel_auroc = pixel_scores["auroc"]
+            #
+            # # Compute PRO score & PW Auroc only for images with anomalies
+            # sel_idxs = []
+            # for i in range(len(masks_gt)):
+            #     if np.sum(masks_gt[i]) > 0:
+            #         sel_idxs.append(i)
+            # pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
+            #     [segmentations[i] for i in sel_idxs], [masks_gt[i] for i in sel_idxs]
+            # )
+            # anomaly_pixel_auroc = pixel_scores["auroc"]
+            #
+            # result_collect.append(
+            #     {
+            #         "dataset_name": dataset_name,
+            #         "instance_auroc": auroc,
+            #         "full_pixel_auroc": full_pixel_auroc,
+            #         "anomaly_pixel_auroc": anomaly_pixel_auroc,
+            #     }
+            # )
+            #
+            # for key, item in result_collect[-1].items():
+            #     if key != "dataset_name":
+            #         LOGGER.info("{0}: {1:3.3f}".format(key, item))
 
             del PatchCore_list
             gc.collect()
 
         LOGGER.info("\n\n-----\n")
 
-    result_metric_names = list(result_collect[-1].keys())[1:]
-    result_dataset_names = [results["dataset_name"] for results in result_collect]
-    result_scores = [list(results.values())[1:] for results in result_collect]
-    patchcore.utils.compute_and_store_final_results(
-        results_path,
-        result_scores,
-        column_names=result_metric_names,
-        row_names=result_dataset_names,
-    )
+    # TODO: restore results CSV when evaluation metrics are re-enabled
+    # result_metric_names = list(result_collect[-1].keys())[1:]
+    # result_dataset_names = [results["dataset_name"] for results in result_collect]
+    # result_scores = [list(results.values())[1:] for results in result_collect]
+    # patchcore.utils.compute_and_store_final_results(
+    #     results_path,
+    #     result_scores,
+    #     column_names=result_metric_names,
+    #     row_names=result_dataset_names,
+    # )
 
 
 @main.command("patch_core_loader")
@@ -209,8 +222,9 @@ def patch_core_loader(patch_core_paths, faiss_on_gpu, faiss_num_workers):
             n_patchcores = len(
                 [x for x in os.listdir(patch_core_path) if ".faiss" in x]
             )
+            gpu_id = device.index if hasattr(device, "index") and device.index is not None else 0
             if n_patchcores == 1:
-                nn_method = patchcore.common.FaissNN(faiss_on_gpu, faiss_num_workers)
+                nn_method = patchcore.common.FaissNN(faiss_on_gpu, faiss_num_workers, gpu_id)
                 patchcore_instance = patchcore.patchcore.PatchCore(device)
                 patchcore_instance.load_from_path(
                     load_path=patch_core_path, device=device, nn_method=nn_method
@@ -219,7 +233,7 @@ def patch_core_loader(patch_core_paths, faiss_on_gpu, faiss_num_workers):
             else:
                 for i in range(n_patchcores):
                     nn_method = patchcore.common.FaissNN(
-                        faiss_on_gpu, faiss_num_workers
+                        faiss_on_gpu, faiss_num_workers, gpu_id
                     )
                     patchcore_instance = patchcore.patchcore.PatchCore(device)
                     patchcore_instance.load_from_path(

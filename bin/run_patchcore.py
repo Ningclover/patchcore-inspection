@@ -173,40 +173,41 @@ def run(
                     mask_transform=mask_transform,
                 )
 
-            LOGGER.info("Computing evaluation metrics.")
-            auroc = patchcore.metrics.compute_imagewise_retrieval_metrics(
-                scores, anomaly_labels
-            )["auroc"]
-
-            # Compute PRO score & PW Auroc for all images
-            pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
-                segmentations, masks_gt
-            )
-            full_pixel_auroc = pixel_scores["auroc"]
-
-            # Compute PRO score & PW Auroc only images with anomalies
-            sel_idxs = []
-            for i in range(len(masks_gt)):
-                if np.sum(masks_gt[i]) > 0:
-                    sel_idxs.append(i)
-            pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
-                [segmentations[i] for i in sel_idxs],
-                [masks_gt[i] for i in sel_idxs],
-            )
-            anomaly_pixel_auroc = pixel_scores["auroc"]
-
-            result_collect.append(
-                {
-                    "dataset_name": dataset_name,
-                    "instance_auroc": auroc,
-                    "full_pixel_auroc": full_pixel_auroc,
-                    "anomaly_pixel_auroc": anomaly_pixel_auroc,
-                }
-            )
-
-            for key, item in result_collect[-1].items():
-                if key != "dataset_name":
-                    LOGGER.info("{0}: {1:3.3f}".format(key, item))
+            # TODO: restore evaluation metrics when defect test images are available
+            # LOGGER.info("Computing evaluation metrics.")
+            # auroc = patchcore.metrics.compute_imagewise_retrieval_metrics(
+            #     scores, anomaly_labels
+            # )["auroc"]
+            #
+            # # Compute PRO score & PW Auroc for all images
+            # pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
+            #     segmentations, masks_gt
+            # )
+            # full_pixel_auroc = pixel_scores["auroc"]
+            #
+            # # Compute PRO score & PW Auroc only images with anomalies
+            # sel_idxs = []
+            # for i in range(len(masks_gt)):
+            #     if np.sum(masks_gt[i]) > 0:
+            #         sel_idxs.append(i)
+            # pixel_scores = patchcore.metrics.compute_pixelwise_retrieval_metrics(
+            #     [segmentations[i] for i in sel_idxs],
+            #     [masks_gt[i] for i in sel_idxs],
+            # )
+            # anomaly_pixel_auroc = pixel_scores["auroc"]
+            #
+            # result_collect.append(
+            #     {
+            #         "dataset_name": dataset_name,
+            #         "instance_auroc": auroc,
+            #         "full_pixel_auroc": full_pixel_auroc,
+            #         "anomaly_pixel_auroc": anomaly_pixel_auroc,
+            #     }
+            # )
+            #
+            # for key, item in result_collect[-1].items():
+            #     if key != "dataset_name":
+            #         LOGGER.info("{0}: {1:3.3f}".format(key, item))
 
             # (Optional) Store PatchCore model for later re-use.
             # SAVE all patchcores only if mean_threshold is passed?
@@ -225,16 +226,16 @@ def run(
 
         LOGGER.info("\n\n-----\n")
 
-    # Store all results and mean scores to a csv-file.
-    result_metric_names = list(result_collect[-1].keys())[1:]
-    result_dataset_names = [results["dataset_name"] for results in result_collect]
-    result_scores = [list(results.values())[1:] for results in result_collect]
-    patchcore.utils.compute_and_store_final_results(
-        run_save_path,
-        result_scores,
-        column_names=result_metric_names,
-        row_names=result_dataset_names,
-    )
+    # TODO: restore results CSV when evaluation metrics are re-enabled
+    # result_metric_names = list(result_collect[-1].keys())[1:]
+    # result_dataset_names = [results["dataset_name"] for results in result_collect]
+    # result_scores = [list(results.values())[1:] for results in result_collect]
+    # patchcore.utils.compute_and_store_final_results(
+    #     run_save_path,
+    #     result_scores,
+    #     column_names=result_metric_names,
+    #     row_names=result_dataset_names,
+    # )
 
 
 @main.command("patch_core")
@@ -283,6 +284,7 @@ def patch_core(
 
     def get_patchcore(input_shape, sampler, device):
         loaded_patchcores = []
+        gpu_id = device.index if hasattr(device, "index") and device.index is not None else 0
         for backbone_name, layers_to_extract_from in zip(
             backbone_names, layers_to_extract_from_coll
         ):
@@ -294,7 +296,7 @@ def patch_core(
             backbone = patchcore.backbones.load(backbone_name)
             backbone.name, backbone.seed = backbone_name, backbone_seed
 
-            nn_method = patchcore.common.FaissNN(faiss_on_gpu, faiss_num_workers)
+            nn_method = patchcore.common.FaissNN(faiss_on_gpu, faiss_num_workers, gpu_id)
 
             patchcore_instance = patchcore.patchcore.PatchCore(device)
             patchcore_instance.load(

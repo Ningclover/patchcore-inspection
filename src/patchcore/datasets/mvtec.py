@@ -78,6 +78,8 @@ class MVTecDataset(torch.utils.data.Dataset):
             transforms.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
         ]
         self.transform_img = transforms.Compose(self.transform_img)
+        self.transform_mean = IMAGENET_MEAN
+        self.transform_std = IMAGENET_STD
 
         self.transform_mask = [
             transforms.Resize(resize),
