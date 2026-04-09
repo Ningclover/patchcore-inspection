@@ -4,18 +4,19 @@
 
 # ── User settings ────────────────────────────────────────────────────────────
 DATAPATH=/nfs/data/1/xning/elec_AI/my_data   # root of dataset (contains Chip/, FEMB/, ...)
-DATASET=Chip                                   # subfolder name inside DATAPATH
-GPU=1                                          # GPU index to use
+DATASET=LarASIC                                   # subfolder name inside DATAPATH
+GPU=0                                          # GPU index to use
 SEED=0
 
 # Path to the trained model folder (produced by train.sh)
-MODEL_PATH=/nfs/data/1/xning/elec_AI/results/MyData_Results/IM224_WR50_Chip_1/models/mvtec_Chip
+#MODEL_PATH=/nfs/data/1/xning/elec_AI/results/MyData_Results/IM224_WR50_Chip_2/models/mvtec_Chip
+MODEL_PATH=/nfs/data/1/xning/elec_AI/results/MyData_Results/IM224_WR50_LarASIC_1/models/mvtec_LarASIC
 
 # Output directory for per-image scores CSV (and optional heatmap images)
-OUTPUT=/nfs/data/1/xning/elec_AI/results/evaluated_results/Chip_infer
+OUTPUT=/nfs/data/1/xning/elec_AI/results/evaluated_results/LarASIC_infer_images
 
 # Set to "--save_segmentation_images" to also save anomaly heatmap PNGs, or leave empty
-SAVE_IMAGES=""
+SAVE_IMAGES="--save_segmentation_images"
 # ─────────────────────────────────────────────────────────────────────────────
 
 # Environment setup
@@ -36,8 +37,8 @@ python bin/load_and_evaluate_patchcore.py \
         -p $MODEL_PATH \
         --faiss_on_gpu \
     dataset \
-        --resize 256 \
-        --imagesize 224 \
+        --resize 512 \
+        --imagesize 512 \
         -d $DATASET \
         mvtec $DATAPATH
 

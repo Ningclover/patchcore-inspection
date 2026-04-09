@@ -4,15 +4,15 @@
 
 # ── User settings ────────────────────────────────────────────────────────────
 DATAPATH=/nfs/data/1/xning/elec_AI/my_data   # root of dataset (contains Chip/, FEMB/, ...)
-DATASET=Chip                                   # subfolder name inside DATAPATH
-GPU=1                                          # GPU index to use
+DATASET=LarASIC                                   # subfolder name inside DATAPATH
+GPU=0                                          # GPU index to use
 SEED=0
 
 # Model / feature settings
 BACKBONE=wideresnet50
 LAYERS="layer2 layer3"
 PRETRAIN_DIM=1024
-TARGET_DIM=1024
+TARGET_DIM=384
 PATCHSIZE=3
 NUM_NN=1
 CORESET_PCT=0.1      # fraction of patches to keep (0.1 = 10%, 0.01 = 1%)
@@ -52,7 +52,7 @@ python bin/run_patchcore.py \
         --patchsize $PATCHSIZE \
     sampler -p $CORESET_PCT approx_greedy_coreset \
     dataset \
-        --resize 256 \
-        --imagesize 224 \
+        --resize 512 \
+        --imagesize 512 \
         -d $DATASET \
         mvtec $DATAPATH

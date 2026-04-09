@@ -103,6 +103,8 @@ def run(methods, results_path, gpu, seed, save_segmentation_images):
                 .max(axis=-1)
                 .reshape(-1, 1, 1, 1)
             )
+            # Save raw (pre-normalization) segmentations for cross-crop consistent coloring.
+            raw_segmentations = np.mean(segmentations, axis=0)   # shape: N x H x W
             segmentations = (segmentations - min_scores) / (max_scores - min_scores)
             segmentations = np.mean(segmentations, axis=0)
 
@@ -114,6 +116,18 @@ def run(methods, results_path, gpu, seed, save_segmentation_images):
             image_paths_all = [
                 x[2] for x in dataloaders["testing"].dataset.data_to_iterate
             ]
+
+            # Save raw segmentation maps (pre-normalization, true feature distances).
+            # Named <results_path>/<stem>_scores.npy — used by stitch script for
+            # a globally consistent colormap across all crop regions.
+            save_depth = 4
+            for img_path, raw_seg in zip(image_paths_all, raw_segmentations):
+                parts = img_path.split("/")
+                stem = "_".join(parts[-save_depth:])
+                stem = os.path.splitext(stem)[0]
+                npy_path = os.path.join(results_path, stem + "_scores.npy")
+                np.save(npy_path, raw_seg)
+
             per_image_csv = os.path.join(results_path, dataset_name + "_per_image_scores.csv")
             with open(per_image_csv, "w") as f:
                 f.write("image_path,anomaly_score,is_defect\n")

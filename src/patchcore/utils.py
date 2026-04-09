@@ -63,6 +63,7 @@ def plot_segmentation_images(
 
         savename = image_path.split("/")
         savename = "_".join(savename[-save_depth:])
+        savename = os.path.splitext(savename)[0] + ".png"
         savename = os.path.join(savefolder, savename)
         f, axes = plt.subplots(1, 2 + int(masks_provided))
         axes[0].imshow(image.transpose(1, 2, 0))
